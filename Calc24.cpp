@@ -11,8 +11,6 @@ int p1, p2, p3;     // 3个运算符的优先级
 
 std::set<std::string> solutions; // 消重用的。没彻底消重
 
-int formated[4]; // 某个操作符是否检查过优先级了
-
 // 执行真正的加减乘除操作
 bool Operation(const rational &a, const char op, const rational &b,
                rational &r) {
@@ -100,39 +98,30 @@ const int GetRightData(const int pos) {
   return 0;
 }
 
-std::string Format(const int pos, const int prevPos,
+std::string Format(const int pos, const int nextPos, const int prevPos,
                    const std::string &prevFmt) {
   // 是否需要加括号。原则是尽量不加括号。
-  // 根据左侧运算符、右侧运算符的优先级，以及左侧运算符是不是减号、除号来决定的。
+  // 根据下一个运算符的优先级，以及下一个运算符是在当前运算符的左侧还是右侧决定的。
   bool needBracket = false;
 
   // 当前运算符
   const char myOp = GetOp(pos);
 
-  // 与左侧运算符比较优先级，确定是否要加括号。
-  // 优先级相等时，如果左侧是减号或者除号，则当前必须加括号，因为减法、除法不能交换。
-  if (pos > 1) {
-    auto leftPos = pos - 1;
-    while (leftPos >= 1 && formated[leftPos])
-      --leftPos;
-
-    if (leftPos >= 1) {
-      const char leftOp = GetOp(leftPos);
+  // 下一个运算符
+  if (nextPos != -1) {
+    // 下一个运算符在左侧。比较优先级，确定是否要加括号。
+    // 优先级相等时，如果左侧是减号或者除号，则当前必须加括号。
+    if (nextPos < pos) {
+      const char leftOp = GetOp(nextPos);
       const auto cmp = CompareOp(leftOp, myOp);
       if (cmp > 0 || (cmp == 0 && (leftOp == '-' || leftOp == '/'))) {
         needBracket = true;
       }
     }
-  }
 
-  // 与右侧运算符比较优先级，确定是否要加括号
-  if (pos < 3) {
-    auto rightPos = pos + 1;
-    while (rightPos <= 3 && formated[rightPos])
-      ++rightPos;
-
-    if (rightPos <= 3) {
-      const char rightOp = GetOp(rightPos);
+    // 下一个运算符在右侧。比较优先级，确定是否要加括号
+    if (nextPos > pos) {
+      const char rightOp = GetOp(nextPos);
       if (CompareOp(myOp, rightOp) < 0) {
         needBracket = true;
       }
@@ -159,26 +148,21 @@ std::string Format(const int pos, const int prevPos,
 }
 
 bool FormatResult(const int pos1, const int pos2, const int pos3) {
-  memset(formated, 0, sizeof(formated));
-
   std::string fmt;
 
   // 先算两边、再算中间这种情况，要特殊处理一下。
   if ((pos1 == 3 && pos2 == 1) || (pos1 == 1 && pos2 == 3)) {
-    const auto left = Format(1, -1, "");
-    const auto right = Format(3, -1, "");
+    const auto left = Format(1, 2, -1, "");
+    const auto right = Format(3, 2, -1, "");
     fmt = std::format("{} {} {}", left, o2, right);
   } else {
     // 依次计算pos1、pos2、pos3指向的操作符。
-    fmt = Format(pos1, -1, "");
-    formated[pos1] = 1;
-
-    fmt = Format(pos2, pos1, fmt);
-    formated[pos2] = 1;
-
-    fmt = Format(pos3, pos2, fmt);
+    fmt = Format(pos1, pos2, -1, "");
+    fmt = Format(pos2, pos3, pos1, fmt);
+    fmt = Format(pos3, -1, pos2, fmt);
   }
 
+  // 简单消重
   if (solutions.find(fmt) == solutions.end()) {
     printf("%s = 24\n", fmt.c_str());
     solutions.insert(fmt);
@@ -355,8 +339,20 @@ void Calc24(const int a, const int b, const int c, const int d) {
   printf("\n");
 }
 
-int main() {
-   Calc24(11, 12, 13, 14);
+int wmain(int argc, wchar_t **argv) {
+  if (argc >= 5) {
+    int a[4];
+    for (int k = 0; k < 4; ++k) {
+      a[k] = _wtoi(argv[k + 1]);
+    }
+
+    Calc24(a[0], a[1], a[2], a[3]);
+    return 0;
+  }
+
+  Calc24(1, 2, 3, 4);
+
+  Calc24(11, 12, 13, 14);
 
   Calc24(5, 5, 5, 1);
   Calc24(3, 3, 8, 8);
